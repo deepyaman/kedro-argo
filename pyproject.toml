@@ -7,7 +7,14 @@ name = "kedro_argo"
 authors = [{name = "Deepyaman Datta", email = "deepyaman.datta@utexas.edu"}]
 license = {file = "LICENSE"}
 classifiers = ["License :: OSI Approved :: MIT License"]
+dependencies = [
+    "kedro >=0.16",
+    "typer >=0.3",
+]
 dynamic = ["version", "description"]
 
 [project.urls]
 Home = "https://github.com/deepyaman/kedro_argo"
+
+[project.entry-points."kedro.project_commands"]
+argo = "kedro_argo.plugin:commands"
