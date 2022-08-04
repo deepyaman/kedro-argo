@@ -8,6 +8,7 @@ authors = [{name = "Deepyaman Datta", email = "deepyaman.datta@utexas.edu"}]
 license = {file = "LICENSE"}
 classifiers = ["License :: OSI Approved :: MIT License"]
 dependencies = [
+    "argo-workflows ~=6.3.0rc2",
     "kedro >=0.16",
     "typer >=0.3",
 ]

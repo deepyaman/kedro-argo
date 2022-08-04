@@ -1,8 +1,19 @@
 import click
 import typer
 import typer.core
-
-from kedro.framework.project import pipelines
+import yaml
+from argo_workflows.model.container import Container
+from argo_workflows.model.io_argoproj_workflow_v1alpha1_template import (
+    IoArgoprojWorkflowV1alpha1Template,
+)
+from argo_workflows.model.io_argoproj_workflow_v1alpha1_workflow import (
+    IoArgoprojWorkflowV1alpha1Workflow,
+)
+from argo_workflows.model.io_argoproj_workflow_v1alpha1_workflow_spec import (
+    IoArgoprojWorkflowV1alpha1WorkflowSpec,
+)
+from argo_workflows.model.object_meta import ObjectMeta
+from kedro.framework.project import PACKAGE_NAME, pipelines
 
 typer.core.rich = None  # https://github.com/kedro-org/kedro/issues/1752
 
@@ -21,7 +32,10 @@ app = typer.Typer()
 
 
 @app.command()
-def convert(name: str = typer.Option("__default__", "--pipeline", "-p")):
+def convert(
+    name: str = typer.Option("__default__", "--pipeline", "-p"),
+    package_path: typer.FileTextWrite = typer.Option("-", "--output", "-o"),
+):
     """Convert a pipeline to an Argo Workflow, and save the manifest."""
     try:
         pipeline = pipelines[name]
@@ -32,7 +46,24 @@ def convert(name: str = typer.Option("__default__", "--pipeline", "-p")):
             f"by the 'register_pipelines' function."
         ) from exc
 
-    print(pipeline)
+    manifest = IoArgoprojWorkflowV1alpha1Workflow(
+        metadata=ObjectMeta(generate_name=f"{PACKAGE_NAME}-{name}-"),
+        spec=IoArgoprojWorkflowV1alpha1WorkflowSpec(
+            entrypoint="whalesay",
+            templates=[
+                IoArgoprojWorkflowV1alpha1Template(
+                    name="whalesay",
+                    container=Container(
+                        image="docker/whalesay:latest",
+                        command=["cowsay"],
+                        args=["hello world"],
+                    ),
+                )
+            ],
+        ),
+    )
+
+    package_path.write(yaml.dump(manifest.to_dict()))
 
 
 typer_click_object = typer.main.get_command(app)
