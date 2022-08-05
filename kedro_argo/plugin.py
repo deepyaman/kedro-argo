@@ -3,6 +3,15 @@ import typer
 import typer.core
 import yaml
 from argo_workflows.model.container import Container
+from argo_workflows.model.io_argoproj_workflow_v1alpha1_arguments import (
+    IoArgoprojWorkflowV1alpha1Arguments,
+)
+from argo_workflows.model.io_argoproj_workflow_v1alpha1_inputs import (
+    IoArgoprojWorkflowV1alpha1Inputs,
+)
+from argo_workflows.model.io_argoproj_workflow_v1alpha1_parameter import (
+    IoArgoprojWorkflowV1alpha1Parameter,
+)
 from argo_workflows.model.io_argoproj_workflow_v1alpha1_template import (
     IoArgoprojWorkflowV1alpha1Template,
 )
@@ -16,6 +25,8 @@ from argo_workflows.model.object_meta import ObjectMeta
 from kedro.framework.project import PACKAGE_NAME, pipelines
 
 typer.core.rich = None  # https://github.com/kedro-org/kedro/issues/1752
+
+_DEFAULT_BASE_IMAGE = "docker/whalesay:latest"
 
 
 @click.group(name="Kedro-Argo")
@@ -52,13 +63,26 @@ def convert(
         metadata=ObjectMeta(generateName=f"{PACKAGE_NAME}-{name.replace('_', '-')}-"),
         spec=IoArgoprojWorkflowV1alpha1WorkflowSpec(
             entrypoint="whalesay",
+            arguments=IoArgoprojWorkflowV1alpha1Arguments(
+                parameters=[
+                    IoArgoprojWorkflowV1alpha1Parameter(
+                        name="pipeline",
+                        value=name,
+                    )
+                ]
+            ),
             templates=[
                 IoArgoprojWorkflowV1alpha1Template(
                     name="whalesay",
+                    inputs=IoArgoprojWorkflowV1alpha1Inputs(
+                        parameters=[
+                            IoArgoprojWorkflowV1alpha1Parameter(name="pipeline")
+                        ]
+                    ),
                     container=Container(
-                        image="docker/whalesay:latest",
+                        image=_DEFAULT_BASE_IMAGE,
                         command=["cowsay"],
-                        args=["hello world"],
+                        args=["kedro run --pipeline {{inputs.parameters.pipeline}}"],
                     ),
                 )
             ],
