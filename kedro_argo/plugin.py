@@ -47,7 +47,9 @@ def convert(
         ) from exc
 
     manifest = IoArgoprojWorkflowV1alpha1Workflow(
-        metadata=ObjectMeta(generate_name=f"{PACKAGE_NAME}-{name}-"),
+        apiVersion="argoproj.io/v1alpha1",
+        kind="Workflow",
+        metadata=ObjectMeta(generateName=f"{PACKAGE_NAME}-{name.replace('_', '-')}-"),
         spec=IoArgoprojWorkflowV1alpha1WorkflowSpec(
             entrypoint="whalesay",
             templates=[
