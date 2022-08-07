@@ -1,3 +1,4 @@
+import csv
 from typing import Any, Dict, List
 
 
@@ -33,9 +34,8 @@ def _split_params(ctx, param, value):
                 f"cannot be an empty string."
             )
         value = item[1].strip()
-        result = _update_value_nested_dict(
-            result, _try_convert_to_numeric(value), key.split(".")
-        )
+        [path] = list(csv.reader([key], delimiter="."))
+        result = _update_value_nested_dict(result, _try_convert_to_numeric(value), path)
     return result
 
 
