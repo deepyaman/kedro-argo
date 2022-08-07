@@ -24,6 +24,8 @@ from argo_workflows.model.io_argoproj_workflow_v1alpha1_workflow_spec import (
 from argo_workflows.model.object_meta import ObjectMeta
 from kedro.framework.project import PACKAGE_NAME, pipelines
 
+from kedro_argo.utils import _split_params, _update_nested_dict
+
 typer.core.rich = None  # https://github.com/kedro-org/kedro/issues/1752
 
 _DEFAULT_BASE_IMAGE = "docker/whalesay:latest"
@@ -46,6 +48,7 @@ app = typer.Typer()
 def convert(
     name: str = typer.Option("__default__", "--pipeline", "-p"),
     package_path: typer.FileTextWrite = typer.Option("-", "--output", "-o"),
+    params: str = typer.Option("", "--params", callback=_split_params),
 ):
     """Convert a pipeline to an Argo Workflow, and save the manifest."""
     try:
@@ -89,7 +92,9 @@ def convert(
         ),
     )
 
-    package_path.write(yaml.dump(manifest.to_dict()))
+    manifest_dict = manifest.to_dict()
+    _update_nested_dict(manifest_dict, params)
+    package_path.write(yaml.dump(manifest_dict))
 
 
 typer_click_object = typer.main.get_command(app)
