@@ -1,0 +1,15 @@
+[paths]
+source =
+    ../kedro_argo
+    */site-packages/kedro_argo
+
+[run]
+branch = true
+parallel = true
+source =
+    kedro_argo
+    .
+
+[report]
+show_missing = true
+precision = 2

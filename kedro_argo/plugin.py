@@ -31,7 +31,7 @@ _DEFAULT_BASE_IMAGE = "docker/whalesay:latest"
 
 @click.group(name="Kedro-Argo")
 def commands():
-    pass
+    pass  # pragma: no cover
 
 
 @commands.group()
