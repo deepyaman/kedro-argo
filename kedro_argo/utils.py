@@ -16,7 +16,7 @@ def _try_convert_to_numeric(value):
 
 
 def _split_params(ctx, param, value):
-    if isinstance(value, dict):
+    if isinstance(value, dict):  # pragma: no cover
         return value
     result = {}
     for item in split_string(ctx, param, value):
