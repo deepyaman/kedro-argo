@@ -28,8 +28,6 @@ from kedro_argo.utils import _split_params, _update_nested_dict
 
 typer.core.rich = None  # https://github.com/kedro-org/kedro/issues/1752
 
-_DEFAULT_BASE_IMAGE = "docker/whalesay:latest"
-
 
 @click.group(name="Kedro-Argo")
 def commands():
@@ -46,26 +44,25 @@ app = typer.Typer()
 
 @app.command()
 def convert(
+    image: str,
     name: str = typer.Option("__default__", "--pipeline", "-p"),
     package_path: typer.FileTextWrite = typer.Option("-", "--output", "-o"),
     params: str = typer.Option("", "--params", callback=_split_params),
 ):
     """Convert a pipeline to an Argo Workflow, and save the manifest."""
-    try:
-        pipeline = pipelines[name]
-    except KeyError as exc:
+    if name not in pipelines:
         raise ValueError(
             f"Failed to find the pipeline named '{name}'. "
             f"It needs to be generated and returned "
             f"by the 'register_pipelines' function."
-        ) from exc
+        )
 
     manifest = IoArgoprojWorkflowV1alpha1Workflow(
         apiVersion="argoproj.io/v1alpha1",
         kind="Workflow",
         metadata=ObjectMeta(generateName=f"{PACKAGE_NAME}-{name.replace('_', '-')}-"),
         spec=IoArgoprojWorkflowV1alpha1WorkflowSpec(
-            entrypoint="whalesay",
+            entrypoint="kedro-run",
             arguments=IoArgoprojWorkflowV1alpha1Arguments(
                 parameters=[
                     IoArgoprojWorkflowV1alpha1Parameter(
@@ -76,15 +73,15 @@ def convert(
             ),
             templates=[
                 IoArgoprojWorkflowV1alpha1Template(
-                    name="whalesay",
+                    name="kedro-run",
                     inputs=IoArgoprojWorkflowV1alpha1Inputs(
                         parameters=[
                             IoArgoprojWorkflowV1alpha1Parameter(name="pipeline")
                         ]
                     ),
                     container=Container(
-                        image=_DEFAULT_BASE_IMAGE,
-                        command=["cowsay"],
+                        image=image,
+                        command=["bash", "-c"],
                         args=["kedro run --pipeline {{inputs.parameters.pipeline}}"],
                     ),
                 )

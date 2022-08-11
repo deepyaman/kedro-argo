@@ -23,7 +23,7 @@ def mock_project(monkeypatch):
 
 
 def test_convert_default_pipeline(mock_project):
-    result = runner.invoke(app, [])
+    result = runner.invoke(app, ["docker/whalesay:latest"])
     assert result.exit_code == 0
     assert "generateName: test_package---default---" in result.stdout
     assert (
@@ -41,7 +41,7 @@ def test_convert_default_pipeline(mock_project):
 
 
 def test_convert_registered_pipeline(mock_project):
-    result = runner.invoke(app, ["--pipeline", "dp"])
+    result = runner.invoke(app, ["docker/whalesay:latest", "--pipeline", "dp"])
     assert result.exit_code == 0
     assert "generateName: test_package-dp-" in result.stdout
     assert (
@@ -60,7 +60,9 @@ def test_convert_registered_pipeline(mock_project):
 
 def test_convert_unregistered_pipeline(mock_project):
     with pytest.raises(ValueError, match="Failed to find the pipeline named 'ds'."):
-        runner.invoke(app, ["--pipeline", "ds"], catch_exceptions=False)
+        runner.invoke(
+            app, ["docker/whalesay:latest", "--pipeline", "ds"], catch_exceptions=False
+        )
 
 
 @pytest.mark.parametrize(
@@ -102,20 +104,20 @@ def test_convert_extra_params(
     mock_update_nested_dict = mocker.patch.object(
         kedro_argo.plugin, "_update_nested_dict"
     )
-    result = runner.invoke(app, ["--params", cli_arg])
+    result = runner.invoke(app, ["docker/whalesay:latest", "--params", cli_arg])
     assert result.exit_code == 0
     mock_update_nested_dict.assert_called_once_with(mocker.ANY, expected_extra_params)
 
 
 @pytest.mark.parametrize("bad_arg", ["bad", "foo:bar,bad"])
 def test_convert_bad_extra_params(bad_arg):
-    result = CliRunner().invoke(app, ["--params", bad_arg])
+    result = CliRunner().invoke(app, ["docker/whalesay:latest", "--params", bad_arg])
     assert result.exit_code
     assert "Item `bad` must contain a key and a value separated by `:`" in result.stdout
 
 
 @pytest.mark.parametrize("bad_arg", [":", ":value", " :value"])
 def test_convert_bad_params_key(bad_arg):
-    result = CliRunner().invoke(app, ["--params", bad_arg])
+    result = CliRunner().invoke(app, ["docker/whalesay:latest", "--params", bad_arg])
     assert result.exit_code
     assert "Parameter key cannot be an empty string" in result.stdout
