@@ -1,6 +1,7 @@
 import textwrap
 
 import pytest
+import yaml
 from typer.testing import CliRunner
 
 import kedro_argo.plugin
@@ -18,6 +19,7 @@ def mock_project(monkeypatch):
         {
             "__default__": None,
             "dp": None,
+            "ds": None,
         },
     )
 
@@ -26,6 +28,7 @@ def test_convert_default_pipeline(mock_project):
     result = runner.invoke(app, ["docker/whalesay:latest"])
     assert result.exit_code == 0
     assert "generateName: test_package---default---" in result.stdout
+    assert "entrypoint: kedro-run" in result.stdout
     assert (
         textwrap.indent(
             textwrap.dedent(
@@ -44,6 +47,7 @@ def test_convert_registered_pipeline(mock_project):
     result = runner.invoke(app, ["docker/whalesay:latest", "--pipeline", "dp"])
     assert result.exit_code == 0
     assert "generateName: test_package-dp-" in result.stdout
+    assert "entrypoint: kedro-run" in result.stdout
     assert (
         textwrap.indent(
             textwrap.dedent(
@@ -59,10 +63,26 @@ def test_convert_registered_pipeline(mock_project):
 
 
 def test_convert_unregistered_pipeline(mock_project):
-    with pytest.raises(ValueError, match="Failed to find the pipeline named 'ds'."):
+    with pytest.raises(ValueError, match="Failed to find the pipeline named 'de'."):
         runner.invoke(
-            app, ["docker/whalesay:latest", "--pipeline", "ds"], catch_exceptions=False
+            app, ["docker/whalesay:latest", "--pipeline", "de"], catch_exceptions=False
         )
+
+
+def test_convert_dependencies(mock_project):
+    result = runner.invoke(
+        app, ["docker/whalesay:latest", "--dependencies", "dp:,ds:dp"]
+    )
+    assert result.exit_code == 0
+    assert "entrypoint: dag" in result.stdout
+    manifest = yaml.full_load(result.stdout)
+    [dag] = (
+        template["dag"]
+        for template in manifest["spec"]["templates"]
+        if template["name"] == "dag"
+    )
+    dependencies = {task["name"]: task.get("depends") for task in dag["tasks"]}
+    assert dependencies == {"dp": None, "ds": "dp"}
 
 
 @pytest.mark.parametrize(

@@ -6,6 +6,12 @@ from argo_workflows.model.container import Container
 from argo_workflows.model.io_argoproj_workflow_v1alpha1_arguments import (
     IoArgoprojWorkflowV1alpha1Arguments,
 )
+from argo_workflows.model.io_argoproj_workflow_v1alpha1_dag_task import (
+    IoArgoprojWorkflowV1alpha1DAGTask,
+)
+from argo_workflows.model.io_argoproj_workflow_v1alpha1_dag_template import (
+    IoArgoprojWorkflowV1alpha1DAGTemplate,
+)
 from argo_workflows.model.io_argoproj_workflow_v1alpha1_inputs import (
     IoArgoprojWorkflowV1alpha1Inputs,
 )
@@ -47,6 +53,9 @@ def convert(
     image: str,
     name: str = typer.Option("__default__", "--pipeline", "-p"),
     package_path: typer.FileTextWrite = typer.Option("-", "--output", "-o"),
+    dependencies: str = typer.Option(
+        "", "--dependencies", "-d", callback=_split_params
+    ),
     params: str = typer.Option("", "--params", callback=_split_params),
 ):
     """Convert a pipeline to an Argo Workflow, and save the manifest."""
@@ -57,12 +66,49 @@ def convert(
             f"by the 'register_pipelines' function."
         )
 
+    templates = [
+        IoArgoprojWorkflowV1alpha1Template(
+            name="kedro-run",
+            inputs=IoArgoprojWorkflowV1alpha1Inputs(
+                parameters=[IoArgoprojWorkflowV1alpha1Parameter(name="pipeline")]
+            ),
+            container=Container(
+                image=image,
+                command=["bash", "-c"],
+                args=["kedro run --pipeline {{inputs.parameters.pipeline}}"],
+            ),
+        )
+    ]
+    if dependencies:
+        tasks = []
+        for name, depends in dependencies.items():
+            kwargs = {
+                "template": "kedro-run",
+                "arguments": IoArgoprojWorkflowV1alpha1Arguments(
+                    parameters=[
+                        IoArgoprojWorkflowV1alpha1Parameter(
+                            name="pipeline",
+                            value=name,
+                        )
+                    ]
+                ),
+            }
+            if depends:
+                kwargs["depends"] = depends
+            tasks.append(IoArgoprojWorkflowV1alpha1DAGTask(name=name, **kwargs))
+        templates.append(
+            IoArgoprojWorkflowV1alpha1Template(
+                name="dag",
+                dag=IoArgoprojWorkflowV1alpha1DAGTemplate(tasks=tasks),
+            )
+        )
+
     manifest = IoArgoprojWorkflowV1alpha1Workflow(
         apiVersion="argoproj.io/v1alpha1",
         kind="Workflow",
         metadata=ObjectMeta(generateName=f"{PACKAGE_NAME}-{name.replace('_', '-')}-"),
         spec=IoArgoprojWorkflowV1alpha1WorkflowSpec(
-            entrypoint="kedro-run",
+            entrypoint="dag" if dependencies else "kedro-run",
             arguments=IoArgoprojWorkflowV1alpha1Arguments(
                 parameters=[
                     IoArgoprojWorkflowV1alpha1Parameter(
@@ -71,21 +117,7 @@ def convert(
                     )
                 ]
             ),
-            templates=[
-                IoArgoprojWorkflowV1alpha1Template(
-                    name="kedro-run",
-                    inputs=IoArgoprojWorkflowV1alpha1Inputs(
-                        parameters=[
-                            IoArgoprojWorkflowV1alpha1Parameter(name="pipeline")
-                        ]
-                    ),
-                    container=Container(
-                        image=image,
-                        command=["bash", "-c"],
-                        args=["kedro run --pipeline {{inputs.parameters.pipeline}}"],
-                    ),
-                )
-            ],
+            templates=templates,
         ),
     )
 
