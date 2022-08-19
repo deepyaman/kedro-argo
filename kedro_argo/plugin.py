@@ -1,6 +1,10 @@
+from functools import wraps
+from typing import Optional
+
 import click
 import typer
 import typer.core
+import typer.main
 import yaml
 from argo_workflows.model.container import Container
 from argo_workflows.model.io_argoproj_workflow_v1alpha1_arguments import (
@@ -30,9 +34,23 @@ from argo_workflows.model.io_argoproj_workflow_v1alpha1_workflow_spec import (
 from argo_workflows.model.object_meta import ObjectMeta
 from kedro.framework.project import PACKAGE_NAME, pipelines
 
-from kedro_argo.utils import _split_params, _update_nested_dict
+from kedro_argo.utils import _config_file_callback, _split_params, _update_nested_dict
 
 typer.core.rich = None  # https://github.com/kedro-org/kedro/issues/1752
+
+
+def click_type_pass_through(f):
+    @wraps(f)
+    def wrapper(*args, **kwds):
+        if isinstance(kwds["annotation"], click.ParamType):
+            return kwds["annotation"]
+        else:
+            return f(*args, **kwds)
+
+    return wrapper
+
+
+typer.main.get_click_type = click_type_pass_through(typer.main.get_click_type)
 
 
 @click.group(name="Kedro-Argo")
@@ -51,17 +69,20 @@ app = typer.Typer()
 @app.command()
 def convert(
     image: str,
-    name: str = typer.Option("__default__", "--pipeline", "-p"),
-    package_path: typer.FileTextWrite = typer.Option("-", "--output", "-o"),
+    pipeline: str = typer.Option("__default__", "--pipeline", "-p"),
+    output: typer.FileTextWrite = typer.Option("-", "--output", "-o"),
     dependencies: str = typer.Option(
         "", "--dependencies", "-d", callback=_split_params
     ),
-    params: str = typer.Option("", "--params", callback=_split_params),
+    config: Optional[typer.FileText] = typer.Option(
+        None, "--config", "-c", callback=_config_file_callback
+    ),
+    params: click.UNPROCESSED = typer.Option("", "--params", callback=_split_params),
 ):
     """Convert a pipeline to an Argo Workflow, and save the manifest."""
-    if name not in pipelines:
+    if pipeline not in pipelines:
         raise ValueError(
-            f"Failed to find the pipeline named '{name}'. "
+            f"Failed to find the pipeline named '{pipeline}'. "
             f"It needs to be generated and returned "
             f"by the 'register_pipelines' function."
         )
@@ -106,14 +127,16 @@ def convert(
     manifest = IoArgoprojWorkflowV1alpha1Workflow(
         apiVersion="argoproj.io/v1alpha1",
         kind="Workflow",
-        metadata=ObjectMeta(generateName=f"{PACKAGE_NAME}-{name.replace('_', '-')}-"),
+        metadata=ObjectMeta(
+            generateName=f"{PACKAGE_NAME}-{pipeline.replace('_', '-')}-"
+        ),
         spec=IoArgoprojWorkflowV1alpha1WorkflowSpec(
             entrypoint="dag" if dependencies else "kedro-run",
             arguments=IoArgoprojWorkflowV1alpha1Arguments(
                 parameters=[
                     IoArgoprojWorkflowV1alpha1Parameter(
                         name="pipeline",
-                        value=name,
+                        value=pipeline,
                     )
                 ]
             ),
@@ -123,7 +146,7 @@ def convert(
 
     manifest_dict = manifest.to_dict()
     _update_nested_dict(manifest_dict, params)
-    package_path.write(yaml.dump(manifest_dict))
+    output.write(yaml.dump(manifest_dict))
 
 
 typer_click_object = typer.main.get_command(app)

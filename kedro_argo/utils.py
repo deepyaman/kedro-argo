@@ -7,6 +7,24 @@ def split_string(ctx, param, value):  # pylint: disable=unused-argument
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
+def _config_file_callback(ctx, param, value):  # pylint: disable=unused-argument
+    """CLI callback that replaces command line options
+    with values specified in a config file. If command line
+    options are passed, they override config file values.
+    """
+    # for performance reasons
+    import anyconfig  # pylint: disable=import-outside-toplevel
+
+    ctx.default_map = ctx.default_map or {}
+    section = ctx.info_name
+
+    if value:
+        config = anyconfig.load(value)[section]
+        ctx.default_map.update(config)
+
+    return value
+
+
 def _try_convert_to_numeric(value):
     try:
         value = float(value)
@@ -16,7 +34,7 @@ def _try_convert_to_numeric(value):
 
 
 def _split_params(ctx, param, value):
-    if isinstance(value, dict):  # pragma: no cover
+    if isinstance(value, dict):
         return value
     result = {}
     for item in split_string(ctx, param, value):

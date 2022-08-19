@@ -1,5 +1,6 @@
 import textwrap
 
+import anyconfig
 import pytest
 import yaml
 from typer.testing import CliRunner
@@ -83,6 +84,72 @@ def test_convert_dependencies(mock_project):
     )
     dependencies = {task["name"]: task.get("depends") for task in dag["tasks"]}
     assert dependencies == {"dp": None, "ds": "dp"}
+
+
+@pytest.fixture(params=["config.yml", "config.json"])
+def mock_config(request, tmp_path):
+    config_path = str(tmp_path / request.param)
+    anyconfig.dump(
+        {
+            "convert": {
+                "image": "docker/whalesay:latest",
+                "pipeline": "dp",
+                "dependencies": "dp:,ds:dp",
+            }
+        },
+        config_path,
+    )
+    return config_path
+
+
+@pytest.mark.parametrize("config_flag", ["--config", "-c"])
+def test_convert_with_config(
+    mock_project,
+    config_flag,
+    mock_config,
+):
+    result = runner.invoke(app, [config_flag, mock_config])
+    assert result.exit_code == 0
+    assert "generateName: test_package-dp-" in result.stdout
+    assert "entrypoint: dag" in result.stdout
+    assert "image: docker/whalesay:latest" in result.stdout
+
+
+@pytest.fixture
+def mock_config_with_params(mock_config, request):
+    config = anyconfig.load(mock_config)
+    config["convert"].update(request.param)
+    anyconfig.dump(config, mock_config)
+    return mock_config
+
+
+@pytest.mark.parametrize(
+    "mock_config_with_params,expected",
+    [
+        ({}, {}),
+        ({"params": {"foo": "baz"}}, {"foo": "baz"}),
+        ({"params": "foo:baz"}, {"foo": "baz"}),
+        (
+            {"params": {"foo": "123.45", "baz": "678", "bar": 9}},
+            {"foo": "123.45", "baz": "678", "bar": 9},
+        ),
+    ],
+    indirect=["mock_config_with_params"],
+)
+def test_convert_with_params_in_config(
+    mock_project,
+    expected,
+    mock_config_with_params,
+    mocker,
+):
+    mock_update_nested_dict = mocker.patch.object(
+        kedro_argo.plugin, "_update_nested_dict"
+    )
+    result = runner.invoke(
+        app, ["docker/whalesay:latest", "-c", mock_config_with_params]
+    )
+    assert result.exit_code == 0, result.stdout
+    mock_update_nested_dict.assert_called_once_with(mocker.ANY, expected)
 
 
 @pytest.mark.parametrize(
