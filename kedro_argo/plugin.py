@@ -128,7 +128,7 @@ def convert(
         apiVersion="argoproj.io/v1alpha1",
         kind="Workflow",
         metadata=ObjectMeta(
-            generateName=f"{PACKAGE_NAME}-{pipeline.replace('_', '-')}-"
+            generateName=f"{PACKAGE_NAME}-{pipeline}-".replace("_", "-")
         ),
         spec=IoArgoprojWorkflowV1alpha1WorkflowSpec(
             entrypoint="dag" if dependencies else "kedro-run",

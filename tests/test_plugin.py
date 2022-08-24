@@ -28,7 +28,7 @@ def mock_project(monkeypatch):
 def test_convert_default_pipeline(mock_project):
     result = runner.invoke(app, ["docker/whalesay:latest"])
     assert result.exit_code == 0
-    assert "generateName: test_package---default---" in result.stdout
+    assert "generateName: test-package---default---" in result.stdout
     assert "entrypoint: kedro-run" in result.stdout
     assert (
         textwrap.indent(
@@ -47,7 +47,7 @@ def test_convert_default_pipeline(mock_project):
 def test_convert_registered_pipeline(mock_project):
     result = runner.invoke(app, ["docker/whalesay:latest", "--pipeline", "dp"])
     assert result.exit_code == 0
-    assert "generateName: test_package-dp-" in result.stdout
+    assert "generateName: test-package-dp-" in result.stdout
     assert "entrypoint: kedro-run" in result.stdout
     assert (
         textwrap.indent(
@@ -110,7 +110,7 @@ def test_convert_with_config(
 ):
     result = runner.invoke(app, [config_flag, mock_config])
     assert result.exit_code == 0
-    assert "generateName: test_package-dp-" in result.stdout
+    assert "generateName: test-package-dp-" in result.stdout
     assert "entrypoint: dag" in result.stdout
     assert "image: docker/whalesay:latest" in result.stdout
 
